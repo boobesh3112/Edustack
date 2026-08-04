@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  TEACHER
+  STUDENT
+  ADMIN
+}
+
+model User {
+  id          String   @id @default(uuid()) // matches supabase auth.users.id
+  email       String   @unique
+  fullName    String
+  role        Role
+  avatarUrl   String?
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations added in later modules
+  coursesTaught   Course[]        @relation("TeacherCourses")
+  enrollments     Enrollment[]
+  submissions     Submission[]
+  testAttempts    TestAttempt[]
+
+  @@index([role])
+}
+
+// Stub models referenced above — fully built out in later modules
+model Course {
+  id        String   @id @default(uuid())
+  title     String
+  teacherId String
+  teacher   User     @relation("TeacherCourses", fields: [teacherId], references: [id])
+  enrollments Enrollment[]
+  createdAt DateTime @default(now())
+}
+
+model Enrollment {
+  id        String @id @default(uuid())
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id])
+  courseId  String
+  course    Course @relation(fields: [courseId], references: [id])
+
+  @@unique([studentId, courseId])
+}
+
+model Submission {
+  id        String @id @default(uuid())
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model TestAttempt {
+  id        String @id @default(uuid())
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id])
+  createdAt DateTime @default(now())
+}
