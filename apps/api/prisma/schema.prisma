@@ -1,67 +1,89 @@
-generator client {
-  provider = "prisma-client-js"
+enum MaterialType {
+  PDF
+  VIDEO
+  NOTE
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+enum ClassStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+  CANCELLED
 }
 
-enum Role {
-  TEACHER
-  STUDENT
-  ADMIN
-}
-
-model User {
-  id          String   @id @default(uuid()) // matches supabase auth.users.id
-  email       String   @unique
-  fullName    String
-  role        Role
-  avatarUrl   String?
-  isVerified  Boolean  @default(false)
+model Course {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  subject     String
+  gradeLevel  String?
+  coverUrl    String?
+  isPublished Boolean  @default(false)
+  teacherId   String
+  teacher     User     @relation("TeacherCourses", fields: [teacherId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations added in later modules
-  coursesTaught   Course[]        @relation("TeacherCourses")
-  enrollments     Enrollment[]
-  submissions     Submission[]
-  testAttempts    TestAttempt[]
+  chapters    Chapter[]
+  enrollments Enrollment[]
+  liveClasses LiveClass[]
+  materials   Material[]
 
-  @@index([role])
+  @@index([teacherId])
 }
 
-// Stub models referenced above — fully built out in later modules
-model Course {
+model Chapter {
   id        String   @id @default(uuid())
   title     String
-  teacherId String
-  teacher   User     @relation("TeacherCourses", fields: [teacherId], references: [id])
-  enrollments Enrollment[]
-  createdAt DateTime @default(now())
-}
-
-model Enrollment {
-  id        String @id @default(uuid())
-  studentId String
-  student   User   @relation(fields: [studentId], references: [id])
+  order     Int      @default(0)
   courseId  String
-  course    Course @relation(fields: [courseId], references: [id])
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  materials Material[]
+  createdAt DateTime @default(now())
 
-  @@unique([studentId, courseId])
+  @@index([courseId])
 }
 
-model Submission {
-  id        String @id @default(uuid())
-  studentId String
-  student   User   @relation(fields: [studentId], references: [id])
-  createdAt DateTime @default(now())
+model Material {
+  id        String       @id @default(uuid())
+  title     String
+  type      MaterialType
+  fileUrl   String
+  fileSize  Int?
+  courseId  String
+  course    Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  chapterId String?
+  chapter   Chapter?     @relation(fields: [chapterId], references: [id])
+  uploadedAt DateTime    @default(now())
+
+  @@index([courseId])
+  @@index([chapterId])
 }
 
-model TestAttempt {
-  id        String @id @default(uuid())
-  studentId String
-  student   User   @relation(fields: [studentId], references: [id])
-  createdAt DateTime @default(now())
+model LiveClass {
+  id          String      @id @default(uuid())
+  title       String
+  courseId    String
+  course      Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  scheduledAt DateTime
+  durationMin Int         @default(60)
+  status      ClassStatus @default(SCHEDULED)
+  roomId      String      @unique @default(uuid())
+  createdAt   DateTime    @default(now())
+
+  attendance  Attendance[]
+
+  @@index([courseId])
+}
+
+model Attendance {
+  id          String    @id @default(uuid())
+  liveClassId String
+  liveClass   LiveClass @relation(fields: [liveClassId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     User      @relation(fields: [studentId], references: [id])
+  joinedAt    DateTime  @default(now())
+  leftAt      DateTime?
+
+  @@unique([liveClassId, studentId])
 }
